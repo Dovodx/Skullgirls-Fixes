@@ -1,0 +1,43 @@
+# Regexes (case-insensitive) for ExportStringXrefs.java
+lobby
+spectat
+rematch
+disconnect
+replay
+ggpo
+rollback
+frameskip
+accumulatedDT
+timesync
+turbo
+\bRCS
+P2P
+room
+quick ?match
+quickrestart
+ready
+endgame
+vsync
+challenge
+char ?select
+matchup
+seed
+hang ?up
+unspool
+invite
+kick
+metadata
+SteamNetworking
+\.ini$
+\.rnd
+round_
+freeze
+pause
+debug
+-[a-z]+$
+music
+bgm
+\.ogg
+trueskill
+synctest
+savestate

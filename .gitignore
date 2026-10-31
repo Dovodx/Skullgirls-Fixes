@@ -1,0 +1,34 @@
+# This repository is public. Keep game-derived and private material out of it.
+
+# Ghidra projects and exported decompilation of the game
+ghidra_proj/
+ghidra_work/
+exports/
+
+# Game logs contain Steam IDs and player names
+logs/
+*.log
+
+# Research notes are local for now: they include local paths, a Steam ID and player names
+PLAN.md
+notes/
+
+# Never commit game files
+*.exe
+*.gfs
+*.gbs
+*.sal
+*.rnd
+SAVEDATA.BIN
+
+# Build output
+build/
+*.dll
+*.o
+*.obj
+*.a
+
+# Editor files
+.vscode/
+.idea/
+*.swp
