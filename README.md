@@ -4,7 +4,8 @@ A work-in-progress mod for Skullgirls 2nd Encore (Windows build, also run throug
 Proton on Linux). It aims to fix online problems: match disconnects, lobby
 failures, and spectators who fail to load into a match.
 
-**Status: early development. There is nothing to install yet.**
+**Status: early development.** The current build only records diagnostics. It doesn't
+fix anything yet, and it doesn't change how the game plays.
 
 ## Goals
 
@@ -41,6 +42,40 @@ needs no Wine DLL overrides. Other community mods commonly use `d3d9.dll` or
 ```bash
 git clone --recurse-submodules <repository-url>
 ```
+
+## Building
+
+You need mingw-w64 for `i686`, CMake and Ninja.
+
+```bash
+cmake -S . -B build -G Ninja -DCMAKE_TOOLCHAIN_FILE=cmake/toolchain-mingw-i686.cmake -DCMAKE_BUILD_TYPE=Release
+cmake --build build
+ctest --test-dir build
+```
+
+This produces `build/Tolk.dll`. Running the tests on Linux needs Wine.
+
+## Installing
+
+1. In the game folder, rename the existing `Tolk.dll` to `Tolk_orig.dll`.
+2. Copy the mod's `Tolk.dll` into the game folder.
+
+To uninstall, delete the mod's `Tolk.dll` and rename `Tolk_orig.dll` back. Steam's
+"Verify integrity of game files" also restores the original `Tolk.dll`, which turns the
+mod off. Leaving `Tolk_orig.dll` behind is harmless.
+
+## Diagnostic logs
+
+Each launch writes a new file to `sgfixes-logs` in the game folder. It records:
+
+- The game's log messages with millisecond timestamps, including messages that
+  `skullgirls.log` never contains
+- Pauses of the game's main thread
+- Gaps in match traffic, and Steam's view of each connection: state, ping, and quality
+- Changes in Steam login state
+
+Before sharing a log, be aware that the game's own messages include Steam display names.
+Steam IDs are shortened to a 4-digit tag.
 
 ## Code standards
 

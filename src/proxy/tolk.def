@@ -1,0 +1,34 @@
+; Exports of our Tolk.dll.
+;
+; The game and any other caller see the same 26 names as the real library, which
+; the installer renames to Tolk_orig.dll. Tolk_Load and Tolk_Unload are implemented
+; in tolk_proxy.cpp. Every other name is a forwarder: Windows sends the call straight
+; to Tolk_orig.dll, so no code of ours runs for them.
+LIBRARY Tolk.dll
+EXPORTS
+    Tolk_Load
+    Tolk_Unload
+    Tolk_Braille = Tolk_orig.Tolk_Braille
+    Tolk_DetectScreenReader = Tolk_orig.Tolk_DetectScreenReader
+    Tolk_HasBraille = Tolk_orig.Tolk_HasBraille
+    Tolk_HasSpeech = Tolk_orig.Tolk_HasSpeech
+    Tolk_IsLoaded = Tolk_orig.Tolk_IsLoaded
+    Tolk_IsSpeaking = Tolk_orig.Tolk_IsSpeaking
+    Tolk_Output = Tolk_orig.Tolk_Output
+    Tolk_PreferSAPI = Tolk_orig.Tolk_PreferSAPI
+    Tolk_Silence = Tolk_orig.Tolk_Silence
+    Tolk_Speak = Tolk_orig.Tolk_Speak
+    Tolk_TrySAPI = Tolk_orig.Tolk_TrySAPI
+    Java_com_davykager_tolk_Tolk_braille = Tolk_orig.Java_com_davykager_tolk_Tolk_braille
+    Java_com_davykager_tolk_Tolk_detectScreenReader = Tolk_orig.Java_com_davykager_tolk_Tolk_detectScreenReader
+    Java_com_davykager_tolk_Tolk_hasBraille = Tolk_orig.Java_com_davykager_tolk_Tolk_hasBraille
+    Java_com_davykager_tolk_Tolk_hasSpeech = Tolk_orig.Java_com_davykager_tolk_Tolk_hasSpeech
+    Java_com_davykager_tolk_Tolk_isLoaded = Tolk_orig.Java_com_davykager_tolk_Tolk_isLoaded
+    Java_com_davykager_tolk_Tolk_isSpeaking = Tolk_orig.Java_com_davykager_tolk_Tolk_isSpeaking
+    Java_com_davykager_tolk_Tolk_load = Tolk_orig.Java_com_davykager_tolk_Tolk_load
+    Java_com_davykager_tolk_Tolk_output = Tolk_orig.Java_com_davykager_tolk_Tolk_output
+    Java_com_davykager_tolk_Tolk_preferSAPI = Tolk_orig.Java_com_davykager_tolk_Tolk_preferSAPI
+    Java_com_davykager_tolk_Tolk_silence = Tolk_orig.Java_com_davykager_tolk_Tolk_silence
+    Java_com_davykager_tolk_Tolk_speak = Tolk_orig.Java_com_davykager_tolk_Tolk_speak
+    Java_com_davykager_tolk_Tolk_trySAPI = Tolk_orig.Java_com_davykager_tolk_Tolk_trySAPI
+    Java_com_davykager_tolk_Tolk_unload = Tolk_orig.Java_com_davykager_tolk_Tolk_unload
