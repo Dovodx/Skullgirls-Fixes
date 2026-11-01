@@ -40,3 +40,8 @@ add_executable(rate_limiter_test tests/rate_limiter_test.cpp)
 target_include_directories(rate_limiter_test PRIVATE src)
 target_link_options(rate_limiter_test PRIVATE -static -static-libgcc -static-libstdc++)
 add_test(NAME rate_limiter_test COMMAND rate_limiter_test)
+
+add_executable(log_privacy_test tests/log_privacy_test.cpp)
+target_include_directories(log_privacy_test PRIVATE src)
+target_link_options(log_privacy_test PRIVATE -static -static-libgcc -static-libstdc++)
+add_test(NAME log_privacy_test COMMAND log_privacy_test)

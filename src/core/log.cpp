@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 
+#include "core/log_privacy.h"
 #include "core/rate_limiter.h"
 
 namespace sgfixes::log {
@@ -102,7 +103,7 @@ void QueueLine(const char* source, const char* text) {
                   now.wSecond, now.wMilliseconds, source);
 
     std::string line(prefix);
-    line += text;
+    line += log_privacy::RemovePrivateDetails(text);
     line += '\n';
     if (g_queue.size() < kMaxQueuedLines) {
         g_queue.push_back(std::move(line));

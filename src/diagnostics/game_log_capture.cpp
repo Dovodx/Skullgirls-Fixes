@@ -54,6 +54,11 @@ constexpr size_t kMaxMessageLength = 1024;
 // How many raw arguments to show for a debug print.
 constexpr int kDebugArgumentCount = 4;
 
+// Game log messages that add nothing to network diagnostics. These cover save files and
+// package mounting, which also make up most of the log's file paths.
+constexpr const char* kIgnoredGameLogPrefixes[] = {"-- ", "---- ", "Mounting pkg",
+                                                   "Beginning Save Process"};
+
 // Debug prints that add nothing. The game's normal logger sends each of its lines through
 // the debug print as a bare "%s", so those duplicate the [game] lines. The second message
 // is printed for every hit landed in a fight.
@@ -83,6 +88,18 @@ void WriteFormatted(const char* source, const char* format, uintptr_t* formatArg
     __mingw_vsnprintf(message, sizeof(message), format, reinterpret_cast<va_list>(formatArguments));
     RemoveTrailingNewlines(message);
     sgfixes::log::WriteLimited(source, format, message);
+}
+
+// Checks whether a game log message should be left out of the log.
+//   format: the message's format string.
+// Returns true if it starts with one of kIgnoredGameLogPrefixes.
+bool IsIgnoredGameLogMessage(const char* format) {
+    for (const char* prefix : kIgnoredGameLogPrefixes) {
+        if (std::strncmp(format, prefix, std::strlen(prefix)) == 0) {
+            return true;
+        }
+    }
+    return false;
 }
 
 // Checks whether a debug print should be left out of the log.
@@ -115,7 +132,10 @@ bool MentionsConnectionTrouble(const char* format) {
 // ignores because -log is off.
 //   arguments: the caller's stack arguments, laid out as described above.
 extern "C" void OnGameLog(uintptr_t* arguments) {
-    WriteFormatted("game", reinterpret_cast<const char*>(arguments[1]), &arguments[2]);
+    const char* format = reinterpret_cast<const char*>(arguments[1]);
+    if (!IsIgnoredGameLogMessage(format)) {
+        WriteFormatted("game", format, &arguments[2]);
+    }
 }
 
 // Debug prints are normally never formatted, so a mistake in one of the game's format

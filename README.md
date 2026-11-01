@@ -74,8 +74,9 @@ Each launch writes a new file to `sgfixes-logs` in the game folder. It records:
 - Gaps in match traffic, and Steam's view of each connection: state, ping, and quality
 - Changes in Steam login state
 
-Before sharing a log, be aware that the game's own messages include Steam display names.
-Steam IDs are shortened to a 4-digit tag.
+Full Steam IDs and the user folder in file paths are removed from every line, and peers
+are shown as a short 4-character tag. Logs still contain Steam display names, including
+those of other players, so check that you're comfortable with that before sharing one.
 
 ## Code standards
 
