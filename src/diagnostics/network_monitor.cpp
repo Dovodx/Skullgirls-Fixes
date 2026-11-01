@@ -2,6 +2,7 @@
 
 #include <windows.h>
 
+#include <algorithm>
 #include <cstdio>
 #include <cstring>
 #include <map>
@@ -65,6 +66,8 @@ struct Peer {
 // Both of these are only touched by the main thread, where the game runs all networking.
 std::map<uint64_t, Peer> g_peers;
 uint64_t g_lastStatusPollMilliseconds = 0;
+bool g_sessionRunning = false;
+uint64_t g_sessionStartMilliseconds = 0;
 
 // -1 means the game hasn't checked yet.
 int g_loggedOn = -1;
@@ -204,7 +207,20 @@ void PollSteamStatus(uint64_t steamId, Peer& peer, uint64_t now) {
     }
 }
 
-// Logs when traffic stops and when it returns.
+// Checks whether a GGPO session exists, and notes when a new one starts.
+//   now: the current time from log::SteadyMilliseconds.
+void UpdateSessionState(uint64_t now) {
+    auto state = reinterpret_cast<const int*>(
+        game_image::Rebase(game_addresses::kGgpoSessionState));
+    bool running = *state != 0;
+    if (running && !g_sessionRunning) {
+        g_sessionStartMilliseconds = now;
+    }
+    g_sessionRunning = running;
+}
+
+// Logs when traffic stops and when it returns during a GGPO session. Traffic normally
+// stops between games, so a gap can't begin before the session did.
 //   steamId:    the peer's Steam ID.
 //   direction:  "sent" or "received", used in the log line.
 //   lastPacket: when the last packet went this way. 0 means none has yet.
@@ -215,10 +231,11 @@ void CheckTrafficGap(uint64_t steamId, const char* direction, uint64_t lastPacke
     if (lastPacket == 0) {
         return;
     }
-    bool inGap = now - lastPacket > kTrafficGapMilliseconds;
+    uint64_t gapStart = std::max(lastPacket, g_sessionStartMilliseconds);
+    bool inGap = now - gapStart > kTrafficGapMilliseconds;
     if (inGap && !reported) {
         log::Writef("net", "Peer %04x: no packets %s for %u ms", PeerTag(steamId), direction,
-                    static_cast<unsigned>(now - lastPacket));
+                    static_cast<unsigned>(now - gapStart));
     } else if (!inGap && reported) {
         log::Writef("net", "Peer %04x: packets %s again", PeerTag(steamId), direction);
     }
@@ -240,6 +257,8 @@ bool CreateNetworkMonitorHooks() {
 }
 
 void UpdateNetworkMonitor(uint64_t nowMilliseconds) {
+    UpdateSessionState(nowMilliseconds);
+
     bool pollStatus = nowMilliseconds - g_lastStatusPollMilliseconds >= kStatusPollMilliseconds;
     if (pollStatus) {
         g_lastStatusPollMilliseconds = nowMilliseconds;
@@ -250,10 +269,15 @@ void UpdateNetworkMonitor(uint64_t nowMilliseconds) {
         if (!active) {
             continue;
         }
-        CheckTrafficGap(steamId, "received", peer.lastReceiveMilliseconds, nowMilliseconds,
-                        peer.receiveGapReported);
-        CheckTrafficGap(steamId, "sent", peer.lastSendMilliseconds, nowMilliseconds,
-                        peer.sendGapReported);
+        if (g_sessionRunning) {
+            CheckTrafficGap(steamId, "received", peer.lastReceiveMilliseconds, nowMilliseconds,
+                            peer.receiveGapReported);
+            CheckTrafficGap(steamId, "sent", peer.lastSendMilliseconds, nowMilliseconds,
+                            peer.sendGapReported);
+        } else {
+            peer.receiveGapReported = false;
+            peer.sendGapReported = false;
+        }
         if (pollStatus) {
             PollSteamStatus(steamId, peer, nowMilliseconds);
         }

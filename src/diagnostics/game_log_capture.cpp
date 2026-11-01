@@ -54,6 +54,11 @@ constexpr size_t kMaxMessageLength = 1024;
 // How many raw arguments to show for a debug print.
 constexpr int kDebugArgumentCount = 4;
 
+// Debug prints that add nothing. The game's normal logger sends each of its lines through
+// the debug print as a bare "%s", so those duplicate the [game] lines. The second message
+// is printed for every hit landed in a fight.
+constexpr const char* kIgnoredDebugMessages[] = {"%s", "GUID %u hit GUID %u on frame %d"};
+
 // GGPO logs constantly while active, so only messages about connection trouble are kept.
 constexpr const char* kGgpoKeywords[] = {"Failure", "Disconnect", "disconnect", "stopped receiving",
                                          "Blowing out", "interrupted", "resumed"};
@@ -78,6 +83,18 @@ void WriteFormatted(const char* source, const char* format, uintptr_t* formatArg
     __mingw_vsnprintf(message, sizeof(message), format, reinterpret_cast<va_list>(formatArguments));
     RemoveTrailingNewlines(message);
     sgfixes::log::WriteLimited(source, format, message);
+}
+
+// Checks whether a debug print should be left out of the log.
+//   message: the format string, with its line endings removed.
+// Returns true if it matches one of kIgnoredDebugMessages.
+bool IsIgnoredDebugMessage(const char* message) {
+    for (const char* ignored : kIgnoredDebugMessages) {
+        if (std::strcmp(message, ignored) == 0) {
+            return true;
+        }
+    }
+    return false;
 }
 
 // Checks whether a GGPO message is worth keeping.
@@ -111,6 +128,9 @@ extern "C" void OnDebugPrint(uintptr_t* arguments) {
     char message[kMaxMessageLength];
     std::snprintf(message, sizeof(message), "%s", format);
     RemoveTrailingNewlines(message);
+    if (IsIgnoredDebugMessage(message)) {
+        return;
+    }
 
     if (std::strchr(format, '%') != nullptr) {
         char values[64] = " |";

@@ -58,6 +58,10 @@ constexpr uintptr_t kSteamContextInitImport = 0x007333AC;
 // SteamInternal_ContextInit returns a pointer to the interface pointer.
 constexpr uintptr_t kNetworkingMessagesContext = 0x00843750;
 
+// int: the game's GGPO session state. 0 means no session is running. Other values cover
+// the session's phases, and the game resets this to 0 whenever it closes a session.
+constexpr uintptr_t kGgpoSessionState = 0x00C52C94;
+
 // Offsets inside the game's PeerAddress struct.
 constexpr size_t kPeerIsSpectatorOffset = 0;  // bool: uses the spectator channel
 constexpr size_t kPeerIdentityOffset = 9;     // SteamNetworkingIdentity

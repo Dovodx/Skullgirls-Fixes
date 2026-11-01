@@ -21,7 +21,7 @@
 
 namespace {
 
-constexpr const char* kModVersion = "0.1.0-logging";
+constexpr const char* kModVersion = "0.1.1-logging";
 
 using TolkFunction = void(__cdecl*)();
 
