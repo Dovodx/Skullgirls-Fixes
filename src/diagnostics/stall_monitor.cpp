@@ -8,6 +8,7 @@
 #include "core/game_addresses.h"
 #include "core/hooks.h"
 #include "core/log.h"
+#include "diagnostics/lobby_monitor.h"
 #include "diagnostics/network_monitor.h"
 
 namespace {
@@ -25,7 +26,7 @@ using MainLoopTick = void(__fastcall*)(void* ecx, void* edx);
 MainLoopTick g_originalMainLoopTick = nullptr;
 
 // Runs at the start of each main loop tick. It records long gaps between ticks, updates
-// the network monitor, then runs the game's tick.
+// the network and lobby monitors, then runs the game's tick.
 //   ecx, edx: the register contents at the call. The game calls this function with no
 //             arguments, but declaring it fastcall means these registers pass through
 //             unchanged, whatever values they hold.
@@ -38,6 +39,7 @@ void __fastcall OnMainLoopTick(void* ecx, void* edx) {
                              static_cast<unsigned>(now - previous));
     }
     sgfixes::diagnostics::UpdateNetworkMonitor(now);
+    sgfixes::diagnostics::UpdateLobbyMonitor(now);
     g_originalMainLoopTick(ecx, edx);
 }
 

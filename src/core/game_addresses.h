@@ -9,6 +9,7 @@
 // somewhere else.
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 
 namespace sgfixes::game_addresses {
@@ -57,6 +58,29 @@ constexpr uintptr_t kSteamContextInitImport = 0x007333AC;
 // The game's cached context for SteamNetworkingMessages002. Passing it to
 // SteamInternal_ContextInit returns a pointer to the interface pointer.
 constexpr uintptr_t kNetworkingMessagesContext = 0x00843750;
+
+// The game's cached Steam contexts. Passing one to SteamInternal_ContextInit returns a
+// pointer to the interface pointer, as above.
+constexpr uintptr_t kMatchmakingContext = 0x00843744;  // SteamMatchMaking009
+constexpr uintptr_t kFriendsContext = 0x0083577C;      // ISteamFriends
+
+// Virtual function table slots, confirmed by the game's calls in the functions at
+// 0x0053E890 and 0x00552D70.
+constexpr size_t kGetLobbyMemberDataSlot = 24;
+constexpr size_t kGetFriendPersonaNameSlot = 7;
+
+// bool: whether the player is in a lobby. The game checks this before using kRoom.
+constexpr uintptr_t kInRoomFlag = 0x00C52187;
+
+// The game's lobby object.
+constexpr uintptr_t kRoom = 0x00C530C0;
+constexpr size_t kRoomLobbyIdOffset = 0;  // uint64
+
+// Two std::vector<uint64_t> of Steam IDs, as begin and end pointers.
+constexpr size_t kRoomMembersBeginOffset = 0x1C;
+constexpr size_t kRoomMembersEndOffset = 0x20;
+constexpr size_t kRoomExpectedSpectatorsBeginOffset = 0x50;
+constexpr size_t kRoomExpectedSpectatorsEndOffset = 0x54;
 
 // int: the game's GGPO session state. 0 means no session is running. Other values cover
 // the session's phases, and the game resets this to 0 whenever it closes a session.

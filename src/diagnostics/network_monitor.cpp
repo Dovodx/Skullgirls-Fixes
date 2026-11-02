@@ -11,10 +11,12 @@
 #include "core/game_image.h"
 #include "core/hooks.h"
 #include "core/log.h"
+#include "core/steam_interfaces.h"
 
 namespace {
 
 using namespace sgfixes;
+using sgfixes::steam_interfaces::ShortTag;
 
 // A peer counts as active for this long after our last packet to it.
 constexpr uint64_t kPeerActiveMilliseconds = 3000;
@@ -59,6 +61,7 @@ struct Peer {
     uint32_t packetsSent = 0;
     uint32_t packetsReceived = 0;
     int lastSteamState = -100;
+    bool receivedThisSession = false;
     bool receiveGapReported = false;
     bool sendGapReported = false;
 };
@@ -81,14 +84,6 @@ TransportSend g_originalSend = nullptr;
 TransportReceive g_originalReceive = nullptr;
 IsLoggedOnToSteam g_originalIsLoggedOn = nullptr;
 
-// Makes a short tag for a peer. Steam IDs identify real people, so logs only show enough
-// to tell peers apart.
-//   steamId: the peer's 64-bit Steam ID.
-// Returns the low 16 bits of the ID.
-unsigned PeerTag(uint64_t steamId) {
-    return static_cast<unsigned>(steamId & 0xffff);
-}
-
 // Converts a connection state to text.
 //   state: a value of Steam's ESteamNetworkingConnectionState.
 // Returns the state's name, or "Other" for internal states.
@@ -104,6 +99,17 @@ const char* SteamStateName(int state) {
     }
 }
 
+// Reads a peer's Steam ID. It sits inside the struct at an unaligned offset.
+//   gamePeer: the game's PeerAddress struct.
+// Returns the peer's Steam ID.
+uint64_t SteamIdOf(void* gamePeer) {
+    const auto* bytes = static_cast<const unsigned char*>(gamePeer);
+    uint64_t steamId;
+    size_t offset = game_addresses::kPeerIdentityOffset + game_addresses::kIdentitySteamIdOffset;
+    std::memcpy(&steamId, bytes + offset, sizeof(steamId));
+    return steamId;
+}
+
 // Finds a peer's record, creating it the first time, and updates its details.
 //   gamePeer: the game's PeerAddress struct, with offsets listed in game_addresses.h.
 // Returns the peer's record.
@@ -111,10 +117,7 @@ Peer& FindPeer(void* gamePeer) {
     auto* bytes = static_cast<unsigned char*>(gamePeer);
     const unsigned char* identity = bytes + game_addresses::kPeerIdentityOffset;
 
-    uint64_t steamId;
-    std::memcpy(&steamId, identity + game_addresses::kIdentitySteamIdOffset, sizeof(steamId));
-
-    Peer& peer = g_peers[steamId];
+    Peer& peer = g_peers[SteamIdOf(gamePeer)];
     peer.isSpectator = bytes[game_addresses::kPeerIsSpectatorOffset] != 0;
     std::memcpy(peer.identity, identity, kIdentitySize);
     return peer;
@@ -146,6 +149,13 @@ bool __thiscall OnTransportReceive(void* self, void* buffer, unsigned capacity, 
         Peer& peer = FindPeer(gamePeer);
         peer.lastReceiveMilliseconds = log::SteadyMilliseconds();
         peer.packetsReceived++;
+        if (!peer.receivedThisSession) {
+            // This shows which players and spectators actually connected in each game.
+            peer.receivedThisSession = true;
+            log::Writef("net", "Peer %04x%s: first packet this session",
+                        ShortTag(SteamIdOf(gamePeer)),
+                        peer.isSpectator ? " (spectator)" : "");
+        }
     }
     return received;
 }
@@ -163,31 +173,18 @@ uint32_t __cdecl OnIsLoggedOnToSteam() {
     return result;
 }
 
-// Gets the same Steam networking interface the game uses.
-// Returns the ISteamNetworkingMessages pointer, or null if Steam isn't ready.
-void* NetworkingMessagesInterface() {
-    using ContextInit = void** (__cdecl*)(void* context);
-    auto importSlot = reinterpret_cast<ContextInit*>(
-        game_image::Rebase(game_addresses::kSteamContextInitImport));
-    void* context = reinterpret_cast<void*>(
-        game_image::Rebase(game_addresses::kNetworkingMessagesContext));
-
-    void** interfaceSlot = (*importSlot)(context);
-    return interfaceSlot == nullptr ? nullptr : *interfaceSlot;
-}
-
 // Asks Steam about a peer's connection, and logs the result if the state changed or a
 // status line is due.
 //   steamId: the peer's Steam ID.
 //   peer:    the peer's record, which is updated.
 //   now:     the current time from log::SteadyMilliseconds.
 void PollSteamStatus(uint64_t steamId, Peer& peer, uint64_t now) {
-    void* networking = NetworkingMessagesInterface();
+    void* networking = steam_interfaces::FromContext(game_addresses::kNetworkingMessagesContext);
     if (networking == nullptr) {
         return;
     }
-    void** table = *static_cast<void***>(networking);
-    auto getInfo = reinterpret_cast<GetSessionConnectionInfo>(table[kGetSessionConnectionInfoSlot]);
+    auto getInfo = reinterpret_cast<GetSessionConnectionInfo>(
+        steam_interfaces::VirtualFunction(networking, kGetSessionConnectionInfoSlot));
 
     SteamConnectionStatus status{};
     int state = getInfo(networking, peer.identity, nullptr, &status);
@@ -197,7 +194,8 @@ void PollSteamStatus(uint64_t steamId, Peer& peer, uint64_t now) {
         log::Writef("net",
                     "Peer %04x%s: %s, ping %d ms, quality local %.2f remote %.2f, "
                     "packets sent %u received %u, Steam in %.0f/s out %.0f/s, queued %d bytes",
-                    PeerTag(steamId), peer.isSpectator ? " (spectator)" : "", SteamStateName(state),
+                    ShortTag(steamId), peer.isSpectator ? " (spectator)" : "",
+                    SteamStateName(state),
                     status.pingMilliseconds, status.qualityLocal, status.qualityRemote,
                     peer.packetsSent, peer.packetsReceived, status.inPacketsPerSecond,
                     status.outPacketsPerSecond,
@@ -215,6 +213,9 @@ void UpdateSessionState(uint64_t now) {
     bool running = *state != 0;
     if (running && !g_sessionRunning) {
         g_sessionStartMilliseconds = now;
+        for (auto& [steamId, peer] : g_peers) {
+            peer.receivedThisSession = false;
+        }
     }
     g_sessionRunning = running;
 }
@@ -234,10 +235,10 @@ void CheckTrafficGap(uint64_t steamId, const char* direction, uint64_t lastPacke
     uint64_t gapStart = std::max(lastPacket, g_sessionStartMilliseconds);
     bool inGap = now - gapStart > kTrafficGapMilliseconds;
     if (inGap && !reported) {
-        log::Writef("net", "Peer %04x: no packets %s for %u ms", PeerTag(steamId), direction,
+        log::Writef("net", "Peer %04x: no packets %s for %u ms", ShortTag(steamId), direction,
                     static_cast<unsigned>(now - gapStart));
     } else if (!inGap && reported) {
-        log::Writef("net", "Peer %04x: packets %s again", PeerTag(steamId), direction);
+        log::Writef("net", "Peer %04x: packets %s again", ShortTag(steamId), direction);
     }
     reported = inGap;
 }

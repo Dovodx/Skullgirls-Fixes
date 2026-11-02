@@ -73,6 +73,8 @@ Each launch writes a new file to `sgfixes-logs` in the game folder. It records:
 - Pauses of the game's main thread
 - Gaps in match traffic, and Steam's view of each connection: state, ping, and quality
 - Changes in Steam login state
+- Every lobby member's ready and in-game status, including players without the mod
+- Which spectators each player is expecting, and which ones connect
 
 Full Steam IDs and the user folder in file paths are removed from every line, and peers
 are shown as a short 4-character tag. Logs still contain Steam display names, including

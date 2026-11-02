@@ -20,7 +20,9 @@ add_library(sgfixes SHARED
     src/core/game_image.cpp
     src/core/hooks.cpp
     src/core/log.cpp
+    src/core/steam_interfaces.cpp
     src/diagnostics/game_log_capture.cpp
+    src/diagnostics/lobby_monitor.cpp
     src/diagnostics/network_monitor.cpp
     src/diagnostics/stall_monitor.cpp
     src/proxy/tolk_proxy.cpp

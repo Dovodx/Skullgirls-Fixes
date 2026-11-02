@@ -61,8 +61,9 @@ constexpr const char* kIgnoredGameLogPrefixes[] = {"-- ", "---- ", "Mounting pkg
 
 // Debug prints that add nothing. The game's normal logger sends each of its lines through
 // the debug print as a bare "%s", so those duplicate the [game] lines. The second message
-// is printed for every hit landed in a fight.
-constexpr const char* kIgnoredDebugMessages[] = {"%s", "GUID %u hit GUID %u on frame %d"};
+// is printed for every hit landed in a fight, and the third while files are loading.
+constexpr const char* kIgnoredDebugMessages[] = {"%s", "GUID %u hit GUID %u on frame %d",
+                                                 "cache %s"};
 
 // GGPO logs constantly while active, so only messages about connection trouble are kept.
 constexpr const char* kGgpoKeywords[] = {"Failure", "Disconnect", "disconnect", "stopped receiving",
