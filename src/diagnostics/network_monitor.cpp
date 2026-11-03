@@ -61,6 +61,7 @@ struct Peer {
     uint32_t packetsSent = 0;
     uint32_t packetsReceived = 0;
     int lastSteamState = -100;
+    bool sentThisSession = false;
     bool receivedThisSession = false;
     bool receiveGapReported = false;
     bool sendGapReported = false;
@@ -110,17 +111,39 @@ uint64_t SteamIdOf(void* gamePeer) {
     return steamId;
 }
 
-// Finds a peer's record, creating it the first time, and updates its details.
+// Finds a peer's record, creating it the first time, and updates its identity.
 //   gamePeer: the game's PeerAddress struct, with offsets listed in game_addresses.h.
 // Returns the peer's record.
 Peer& FindPeer(void* gamePeer) {
-    auto* bytes = static_cast<unsigned char*>(gamePeer);
-    const unsigned char* identity = bytes + game_addresses::kPeerIdentityOffset;
-
+    const auto* bytes = static_cast<const unsigned char*>(gamePeer);
     Peer& peer = g_peers[SteamIdOf(gamePeer)];
-    peer.isSpectator = bytes[game_addresses::kPeerIsSpectatorOffset] != 0;
-    std::memcpy(peer.identity, identity, kIdentitySize);
+    std::memcpy(peer.identity, bytes + game_addresses::kPeerIdentityOffset, kIdentitySize);
     return peer;
+}
+
+// Gives the label that marks a link between a player and a spectator. On a player's game
+// the peer is the spectator, and on a spectator's game the peer is the player it watches.
+//   peer: the peer's record.
+// Returns text to add after the peer's tag.
+const char* LinkLabel(const Peer& peer) {
+    return peer.isSpectator ? " (spectator link)" : "";
+}
+
+// Records that a packet went one way during this session, and logs the first time
+// packets have gone both ways. That line shows which players and spectators actually
+// connected in each game. It always follows a sent packet, so its label is reliable.
+//   steamId: the peer's Steam ID.
+//   peer:    the peer's record.
+//   thisWay: input and output. The peer's sentThisSession or receivedThisSession flag.
+void NoteSessionTraffic(uint64_t steamId, Peer& peer, bool& thisWay) {
+    if (thisWay) {
+        return;
+    }
+    thisWay = true;
+    if (peer.sentThisSession && peer.receivedThisSession) {
+        log::Writef("net", "Peer %04x%s: packets going both ways this session",
+                    ShortTag(steamId), LinkLabel(peer));
+    }
 }
 
 // Runs in place of SteamTransport's send method. It records the packet, then sends it.
@@ -130,8 +153,13 @@ Peer& FindPeer(void* gamePeer) {
 //   gamePeer: the destination, as a PeerAddress struct.
 void __thiscall OnTransportSend(void* self, const void* data, int length, void* gamePeer) {
     Peer& peer = FindPeer(gamePeer);
+    // Only addresses the game sends to have a reliable spectator flag, so received
+    // packets never change it.
+    const auto* bytes = static_cast<const unsigned char*>(gamePeer);
+    peer.isSpectator = bytes[game_addresses::kPeerIsSpectatorOffset] != 0;
     peer.lastSendMilliseconds = log::SteadyMilliseconds();
     peer.packetsSent++;
+    NoteSessionTraffic(SteamIdOf(gamePeer), peer, peer.sentThisSession);
     g_originalSend(self, data, length, gamePeer);
 }
 
@@ -149,13 +177,7 @@ bool __thiscall OnTransportReceive(void* self, void* buffer, unsigned capacity, 
         Peer& peer = FindPeer(gamePeer);
         peer.lastReceiveMilliseconds = log::SteadyMilliseconds();
         peer.packetsReceived++;
-        if (!peer.receivedThisSession) {
-            // This shows which players and spectators actually connected in each game.
-            peer.receivedThisSession = true;
-            log::Writef("net", "Peer %04x%s: first packet this session",
-                        ShortTag(SteamIdOf(gamePeer)),
-                        peer.isSpectator ? " (spectator)" : "");
-        }
+        NoteSessionTraffic(SteamIdOf(gamePeer), peer, peer.receivedThisSession);
     }
     return received;
 }
@@ -194,7 +216,7 @@ void PollSteamStatus(uint64_t steamId, Peer& peer, uint64_t now) {
         log::Writef("net",
                     "Peer %04x%s: %s, ping %d ms, quality local %.2f remote %.2f, "
                     "packets sent %u received %u, Steam in %.0f/s out %.0f/s, queued %d bytes",
-                    ShortTag(steamId), peer.isSpectator ? " (spectator)" : "",
+                    ShortTag(steamId), LinkLabel(peer),
                     SteamStateName(state),
                     status.pingMilliseconds, status.qualityLocal, status.qualityRemote,
                     peer.packetsSent, peer.packetsReceived, status.inPacketsPerSecond,
@@ -214,6 +236,7 @@ void UpdateSessionState(uint64_t now) {
     if (running && !g_sessionRunning) {
         g_sessionStartMilliseconds = now;
         for (auto& [steamId, peer] : g_peers) {
+            peer.sentThisSession = false;
             peer.receivedThisSession = false;
         }
     }

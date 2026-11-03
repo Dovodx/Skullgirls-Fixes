@@ -32,6 +32,7 @@ check the executable and refuse to patch any other version.
 - [MinHook](https://github.com/TsudaKageyu/minhook) for function hooks, included as
   a git submodule in `external/minhook`.
 - `scripts/` holds the Ghidra scripts used for static analysis of the game.
+- `install/` holds the install and uninstall scripts for Windows and Linux.
 
 The mod will load through a proxy `Tolk.dll`, which lives in the game folder and
 needs no Wine DLL overrides. Other community mods commonly use `d3d9.dll` or
@@ -55,14 +56,36 @@ ctest --test-dir build
 
 This produces `build/Tolk.dll`. Running the tests on Linux needs Wine.
 
+To build the download, `build/skullgirls-fixes.zip`:
+
+```bash
+cmake --build build --target release_zip
+```
+
 ## Installing
 
-1. In the game folder, rename the existing `Tolk.dll` to `Tolk_orig.dll`.
-2. Copy the mod's `Tolk.dll` into the game folder.
+1. Extract the download into the game folder. This adds an `sgfixes` folder and
+   changes nothing else.
+2. Run the install script in that folder:
+   - **Windows:** double-click `sgfixes\install.bat`.
+   - **Linux (Proton):** in the game folder, run `sh sgfixes/install.sh`.
 
-To uninstall, delete the mod's `Tolk.dll` and rename `Tolk_orig.dll` back. Steam's
-"Verify integrity of game files" also restores the original `Tolk.dll`, which turns the
-mod off. Leaving `Tolk_orig.dll` behind is harmless.
+The script keeps the game's `Tolk.dll` as `Tolk_orig.dll` and puts the mod's `Tolk.dll`
+in its place. To update, extract a newer download over the old one and run the script
+again. Run it again too after a Steam update or file check, since those put the
+original `Tolk.dll` back.
+
+To uninstall, run `sgfixes\uninstall.bat` or `sh sgfixes/uninstall.sh`, then delete the
+`sgfixes` folder. The mod's logs in `sgfixes-logs` are left in place. Steam's "Verify
+integrity of game files" also restores the original `Tolk.dll`, which turns the mod off.
+
+To install by hand instead:
+
+1. In the game folder, rename the existing `Tolk.dll` to `Tolk_orig.dll`.
+2. Copy `sgfixes/Tolk.dll` into the game folder.
+
+To uninstall by hand, delete the mod's `Tolk.dll` and rename `Tolk_orig.dll` back.
+Leaving `Tolk_orig.dll` behind is harmless.
 
 ## Diagnostic logs
 
@@ -75,6 +98,8 @@ Each launch writes a new file to `sgfixes-logs` in the game folder. It records:
 - Changes in Steam login state
 - Every lobby member's ready and in-game status, including players without the mod
 - Which spectators each player is expecting, and which ones connect
+- How far each match session got when it closed: the current frame, the last frame
+  with both players' inputs, and the frames sent to and received by each spectator
 
 Full Steam IDs and the user folder in file paths are removed from every line, and peers
 are shown as a short 4-character tag. Logs still contain Steam display names, including

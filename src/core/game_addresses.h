@@ -86,11 +86,46 @@ constexpr size_t kRoomExpectedSpectatorsEndOffset = 0x54;
 // the session's phases, and the game resets this to 0 whenever it closes a session.
 constexpr uintptr_t kGgpoSessionState = 0x00C52C94;
 
-// Offsets inside the game's PeerAddress struct.
+// Offsets inside the game's PeerAddress struct. The spectator flag is only reliable in
+// addresses the game sends to. Playtest logs showed it missing from received ones.
 constexpr size_t kPeerIsSpectatorOffset = 0;  // bool: uses the spectator channel
 constexpr size_t kPeerIdentityOffset = 9;     // SteamNetworkingIdentity
 
 // Offset of the 64-bit Steam ID inside a SteamNetworkingIdentity.
 constexpr size_t kIdentitySteamIdOffset = 8;
+
+// GGPO's exported ggpo_close_session. The game calls it from four places to end a match
+// session, both as a player and as a spectator.
+// int __cdecl ggpo_close_session(GGPOSession* session)
+constexpr uintptr_t kGgpoCloseSession = 0x0069B970;
+constexpr uint8_t kGgpoCloseSessionBytes[] = {0x55, 0x8B, 0xEC, 0x8B, 0x4D, 0x08};
+
+// A GGPO session's first 4 bytes point to its class's virtual function table, which tells
+// the two kinds apart. Their constructors at 0x0069BDD0 and 0x0069DD20 store these.
+constexpr uintptr_t kPlayerSessionVtable = 0x00751054;     // GGPO's Peer2PeerBackend
+constexpr uintptr_t kSpectatorSessionVtable = 0x007516D8;  // GGPO's SpectatorBackend
+
+// Offsets inside a player's session, read by its methods at 0x0069CF00 and 0x0069CF20 and
+// by its spectator loop at 0x0069CD2B.
+constexpr size_t kPlayerSessionConfirmedFrameOffset = 0x4F4;  // int: last frame with every player's input
+constexpr size_t kPlayerSessionCurrentFrameOffset = 0x4F8;    // int: the frame being simulated
+constexpr size_t kPlayerSessionSpectatorsOffset = 0x5734;     // one connection per spectator
+constexpr size_t kPlayerSessionSpectatorCountOffset = 0x1565B4;      // int
+constexpr size_t kPlayerSessionNextSpectatorFrameOffset = 0x1565C8;  // int per spectator
+constexpr int kMaxSpectators = 32;
+
+// Offsets inside one of GGPO's connections to a peer (its UdpProtocol class). The state
+// uses GGPO's order: 0 syncing, 1 synchronized, 2 running, 3 disconnected.
+constexpr size_t kConnectionSize = 0xA874;
+constexpr size_t kConnectionPeerAddressOffset = 8;          // PeerAddress, copied at 0x006A0220
+constexpr size_t kConnectionStateOffset = 0x4EC;            // int
+constexpr size_t kConnectionLastAckedFrameOffset = 0xA868;  // int, logged by GGPO as last_acked_input
+
+// Offsets inside a spectator's session, read by its input function at 0x0069E200. Received
+// inputs are kept in a ring, and each entry starts with its frame number, or -1 if empty.
+constexpr size_t kSpectatorSessionNextFrameOffset = 0xAAD0;  // int: next frame for the game
+constexpr size_t kSpectatorSessionInputsOffset = 0xAAD4;
+constexpr size_t kSpectatorSessionInputSize = 0x38;
+constexpr size_t kSpectatorSessionInputCount = 0x800;
 
 }  // namespace sgfixes::game_addresses

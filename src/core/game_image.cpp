@@ -84,4 +84,8 @@ uintptr_t Rebase(uintptr_t preferredAddress) {
     return preferredAddress - kPreferredBase + LoadedBase();
 }
 
+uintptr_t ToPreferred(uintptr_t runtimeAddress) {
+    return runtimeAddress - LoadedBase() + kPreferredBase;
+}
+
 }  // namespace sgfixes::game_image

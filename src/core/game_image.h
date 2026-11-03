@@ -19,4 +19,10 @@ uintptr_t LoadedBase();
 // Returns the address to use at runtime.
 uintptr_t Rebase(uintptr_t preferredAddress);
 
+// Converts a real address in this process back to the one Ghidra shows. This is the
+// reverse of Rebase, and makes addresses in the log easy to look up.
+//   runtimeAddress: an address inside the running exe.
+// Returns the address as the exe's preferred base would place it.
+uintptr_t ToPreferred(uintptr_t runtimeAddress);
+
 }  // namespace sgfixes::game_image

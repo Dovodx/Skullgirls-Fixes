@@ -17,11 +17,12 @@
 #include "core/log.h"
 #include "diagnostics/game_log_capture.h"
 #include "diagnostics/network_monitor.h"
+#include "diagnostics/session_monitor.h"
 #include "diagnostics/stall_monitor.h"
 
 namespace {
 
-constexpr const char* kModVersion = "0.1.3-logging";
+constexpr const char* kModVersion = "0.1.4-logging";
 
 using TolkFunction = void(__cdecl*)();
 
@@ -56,6 +57,7 @@ void StartMod() {
     sgfixes::hooks::Begin();
     bool created = sgfixes::diagnostics::CreateGameLogCaptureHooks()
                    && sgfixes::diagnostics::CreateNetworkMonitorHooks()
+                   && sgfixes::diagnostics::CreateSessionMonitorHooks()
                    && sgfixes::diagnostics::CreateStallMonitorHooks();
     if (created && sgfixes::hooks::EnableAll()) {
         sgfixes::diagnostics::StartStallWatchdog();
